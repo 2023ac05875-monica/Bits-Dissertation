@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Detection System</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: white;
+            padding: 24px 0;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.6rem; font-weight: 600; }
+        .header p { font-size: 0.9rem; opacity: 0.85; margin-top: 4px; }
+        .container {
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* --- Result Banner --- */
+        .result-banner {
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .result-banner.fraud {
+            background: #fce4ec;
+            border-left: 5px solid #c62828;
+        }
+        .result-banner.legit {
+            background: #e8f5e9;
+            border-left: 5px solid #2e7d32;
+        }
+        .result-banner .icon { font-size: 2rem; }
+        .result-banner .label {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .result-banner.fraud .label { color: #c62828; }
+        .result-banner.legit .label { color: #2e7d32; }
+
+        /* --- Score Cards --- */
+        .scores {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .score-card {
+            background: white;
+            border-radius: 8px;
+            padding: 14px 16px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .score-card .val {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1a237e;
+        }
+        .score-card .lbl {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- Rules --- */
+        .rules-box {
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .rules-box h3 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: #444;
+        }
+        .rule-tag {
+            display: inline-block;
+            background: #fff3e0;
+            color: #e65100;
+            border: 1px solid #ffcc80;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin: 3px 4px 3px 0;
+        }
+        .rule-tag.none {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #a5d6a7;
+        }
+
+        /* --- SHAP Explanation --- */
+        .shap-box {
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .shap-box h3 {
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            color: #444;
+        }
+        .shap-box .base-val {
+            font-size: 0.78rem;
+            color: #777;
+            margin-bottom: 12px;
+        }
+        .shap-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.82rem;
+        }
+        .shap-fname {
+            width: 140px;
+            flex-shrink: 0;
+            font-weight: 600;
+            color: #444;
+            text-align: right;
+            padding-right: 10px;
+        }
+        .shap-bar-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            position: relative;
+            height: 20px;
+        }
+        .shap-bar-bg {
+            position: absolute;
+            left: 0; right: 0;
+            height: 100%;
+            background: #f5f5f5;
+            border-radius: 3px;
+        }
+        .shap-bar {
+            position: absolute;
+            height: 100%;
+            border-radius: 3px;
+            min-width: 2px;
+        }
+        .shap-bar.fraud { background: #ef5350; left: 50%; }
+        .shap-bar.legit { background: #66bb6a; right: 50%; }
+        .shap-val {
+            width: 65px;
+            flex-shrink: 0;
+            text-align: right;
+            font-family: monospace;
+            font-size: 0.78rem;
+            padding-left: 8px;
+        }
+        .shap-val.fraud { color: #c62828; }
+        .shap-val.legit { color: #2e7d32; }
+
+        /* --- Error --- */
+        .error-box {
+            background: #fff3e0;
+            border-left: 5px solid #e65100;
+            padding: 14px 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            color: #bf360c;
+        }
+
+        /* --- Form --- */
+        .form-card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px 28px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .form-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 18px;
+            color: #1a237e;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 4px;
+        }
+        .form-group input,
+        .form-group select {
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #1a237e;
+            box-shadow: 0 0 0 2px rgba(26,35,126,0.1);
+        }
+        .btn-submit {
+            margin-top: 20px;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-submit:hover { opacity: 0.9; }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.75rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Online Banking Fraud Detection System</h1>
+    <p>Hybrid ML Model &mdash; Random Forest + Autoencoder</p>
+</div>
+
+<div class="container">
+
+    <!-- Result Banner -->
+    {% if prediction %}
+    <div class="result-banner {{ 'fraud' if prediction == 'Fraudulent' else 'legit' }}">
+        <span class="icon">{{ '&#9888;' if prediction == 'Fraudulent' else '&#10004;' }}</span>
+        <div>
+            <div class="label">{{ prediction }}</div>
+            <div style="font-size:0.85rem; color:#555; margin-top:2px;">
+                Hybrid fraud score: <strong>{{ final_score }}</strong>
+                (threshold: {{ threshold }})
+            </div>
+        </div>
+    </div>
+
+    <!-- Score Cards -->
+    <div class="scores">
+        <div class="score-card">
+            <div class="val">{{ rf_score }}</div>
+            <div class="lbl">RF Probability</div>
+        </div>
+        <div class="score-card">
+            <div class="val">{{ ae_score }}</div>
+            <div class="lbl">AE Error</div>
+        </div>
+        <div class="score-card">
+            <div class="val">{{ alpha }}</div>
+            <div class="lbl">Alpha (RF Weight)</div>
+        </div>
+        <div class="score-card">
+            <div class="val">{{ is_flagged }}</div>
+            <div class="lbl">Rule Flagged</div>
+        </div>
+    </div>
+
+    <!-- Triggered Rules -->
+    <div class="rules-box">
+        <h3>Triggered Fraud-Detection Rules</h3>
+        {% if triggered_rules %}
+            {% for r in triggered_rules %}
+                <span class="rule-tag">{{ r }}</span>
+            {% endfor %}
+        {% else %}
+            <span class="rule-tag none">No rules triggered</span>
+        {% endif %}
+    </div>
+
+    <!-- SHAP Explanation -->
+    {% if shap_data %}
+    <div class="shap-box">
+        <h3>SHAP Feature Contributions (Why this prediction?)</h3>
+        <div class="base-val">Base value (avg fraud probability): {{ shap_base }}</div>
+        {% for s in shap_data %}
+        <div class="shap-row">
+            <div class="shap-fname">{{ s.feature }}</div>
+            <div class="shap-bar-wrap">
+                <div class="shap-bar-bg"></div>
+                {% if s.direction == 'fraud' %}
+                <div class="shap-bar fraud" style="width: {{ (s.abs / shap_data[0].abs * 50) | round(1) }}%;"></div>
+                {% else %}
+                <div class="shap-bar legit" style="width: {{ (s.abs / shap_data[0].abs * 50) | round(1) }}%; right: 50%; left: auto;"></div>
+                {% endif %}
+            </div>
+            <div class="shap-val {{ s.direction }}">
+                {{ '+' if s.value > 0 else '' }}{{ s.value }}
+            </div>
+        </div>
+        {% endfor %}
+        <div style="display:flex; justify-content:center; gap:20px; margin-top:10px; font-size:0.75rem; color:#888;">
+            <span style="color:#2e7d32;">&#9664; Pushes toward Legitimate</span>
+            <span style="color:#c62828;">Pushes toward Fraud &#9654;</span>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Error -->
+    {% if error %}
+    <div class="error-box">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Input Form -->
+    <div class="form-card">
+        <h2>Enter Transaction Details</h2>
+        <form method="POST" action="/predict">
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="step">Step (hour of simulation)</label>
+                    <input type="number" id="step" name="step" step="1" min="0"
+                           value="{{ form.step if form else '1' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="type">Transaction Type</label>
+                    <select id="type" name="type" required>
+                        {% set types = ['PAYMENT', 'TRANSFER', 'CASH_OUT', 'DEBIT'] %}
+                        {% for t in types %}
+                        <option value="{{ t }}"
+                            {{ 'selected' if form and form.type == t else '' }}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount">Amount</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0"
+                           value="{{ form.amount if form else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nameOrig">Sender Account (nameOrig)</label>
+                    <input type="text" id="nameOrig" name="nameOrig"
+                           value="{{ form.nameOrig if form else '' }}"
+                           placeholder="e.g. C1234567890" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="oldbalanceOrg">Sender Balance Before</label>
+                    <input type="number" id="oldbalanceOrg" name="oldbalanceOrg" step="0.01"
+                           value="{{ form.oldbalanceOrg if form else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="newbalanceOrig">Sender Balance After</label>
+                    <input type="number" id="newbalanceOrig" name="newbalanceOrig" step="0.01"
+                           value="{{ form.newbalanceOrig if form else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nameDest">Receiver Account (nameDest)</label>
+                    <input type="text" id="nameDest" name="nameDest"
+                           value="{{ form.nameDest if form else '' }}"
+                           placeholder="e.g. M9876543210" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="oldbalanceDest">Receiver Balance Before</label>
+                    <input type="number" id="oldbalanceDest" name="oldbalanceDest" step="0.01"
+                           value="{{ form.oldbalanceDest if form else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="newbalanceDest">Receiver Balance After</label>
+                    <input type="number" id="newbalanceDest" name="newbalanceDest" step="0.01"
+                           value="{{ form.newbalanceDest if form else '' }}" required>
+                </div>
+
+            </div>
+
+            <button type="submit" class="btn-submit">Classify Transaction</button>
+        </form>
+    </div>
+</div>
+
+<div class="footer">
+    Bank Fraud Detection System &mdash; Hybrid RF + Autoencoder &mdash; BITS Pilani Dissertation Project
+</div>
+
+</body>
+</html>
